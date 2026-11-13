@@ -182,8 +182,8 @@ var AI = (function(){
   function ruleParse(text,form,ctx){
     var t=(text||"").replace(/\s+/g," ");var s={notes:[]};
     // 종류
-    if(/놀이터/.test(t))s.type="playground";else if(/공원|숲|정원|녹지|광장/.test(t))s.type="park";else if(/벤치|의자/.test(t))s.type="bench";else if(/정자|파빌리온|쉼터|원두막/.test(t))s.type="pavilion";else if(/단독|주택|집(?!합)|전원주택|한옥/.test(t)&&!/아파트|공동주택|청년\s?주택|행복주택|기숙사|빌딩|센터/.test(t))s.type="house";else s.type="building";
-    var useM=t.match(/(도서관|카페|커뮤니티\s?센터|청년\s?주택|아파트|공동주택|체육관|전시관|미술관|스마트팜|학교|어린이집|복지관|경로당|주민센터|오피스|사무실|상가|시장|호텔|기숙사|연구소|박물관|공연장)/);
+    if(/놀이터/.test(t))s.type="playground";else if(/공원|숲|정원|녹지|광장/.test(t))s.type="park";else if(/벤치|의자/.test(t))s.type="bench";else if(/정자|파빌리온|쉼터|원두막|정류장|정류소/.test(t))s.type="pavilion";else if(/주차장/.test(t))s.type="park";else if(/단독|주택|집(?!합)|전원주택|한옥/.test(t)&&!/아파트|공동주택|청년\s?주택|행복주택|기숙사|빌딩|센터/.test(t))s.type="house";else s.type="building";
+    var useM=t.match(/(버스\s?정류장|정류장|주차장|편의점|도서관|카페|커뮤니티\s?센터|청년\s?주택|아파트|공동주택|체육관|전시관|미술관|스마트팜|학교|어린이집|복지관|경로당|주민센터|오피스|사무실|상가|시장|호텔|기숙사|연구소|박물관|공연장)/);
     s.use=useM?useM[1].replace(/\s/g,""):({building:"복합문화시설",house:"단독주택",park:"근린공원",bench:"휴게 벤치",pavilion:"정자 쉼터",playground:"어린이 놀이터"})[s.type];
     // 모양
     if(/ㅁ자|중정/.test(t))s.form="court";else if(/ㄷ자|U자|유자/.test(t))s.form="U";else if(/L자|ㄱ자|엘자/.test(t))s.form="L";
@@ -223,12 +223,14 @@ var AI = (function(){
     if(!s.top&&P.top&&!/지붕\s*(없|평)/.test(t))s.top=P.top;
     if(!s.roof&&P.roof==="gable")s.roof="gable";
     if(s.top==="pyramid"||s.top==="dome"||s.top==="cone")s.roof="flat";
-    s.use=/(도서관|카페|센터|주택|아파트|체육관|전시관|미술관|스마트팜|학교|복지관|오피스|상가|호텔|기숙사|박물관|공연장)/.test(t)?s.use:R.name;
+    s.use=/(편의점|주차장|정류장|도서관|카페|센터|주택|아파트|체육관|전시관|미술관|스마트팜|학교|복지관|오피스|상가|호텔|기숙사|박물관|공연장)/.test(t)?s.use:R.name;
     s.realName=R.name;s.rotation=0;
     var out=finish(s,1);if(!s.explicit.floors&&!s.addFloors&&R.height&&!P.floors){out.height=R.height;}return out;}
   function bb(p){var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;p.forEach(function(q){x0=Math.min(x0,q[0]);y0=Math.min(y0,q[1]);x1=Math.max(x1,q[0]);y1=Math.max(y1,q[1]);});return {x0:x0,y0:y0,x1:x1,y1:y1};}
   function finish(s,scale){
-    var D={building:{w:28,d:18,f:4},house:{w:12,d:9,f:2},park:{w:60,d:45,f:0},bench:{w:2.2,d:0.7,f:0},pavilion:{w:6,d:6,f:0},playground:{w:30,d:24,f:0}}[s.type];
+    var U={"편의점":{w:12,d:9,f:1},"카페":{w:14,d:10,f:2},"도서관":{w:32,d:22,f:3},"버스정류장":{w:8,d:2.4,f:0},"정류장":{w:8,d:2.4,f:0},"주차장":{w:40,d:25,f:0}}[s.use];
+    if(U&&s.type==="pavilion"&&!s.height)s.height=2.8;
+    var D=U||{building:{w:28,d:18,f:4},house:{w:12,d:9,f:2},park:{w:60,d:45,f:0},bench:{w:2.2,d:0.7,f:0},pavilion:{w:6,d:6,f:0},playground:{w:30,d:24,f:0}}[s.type];
     scale=scale||1;
     if(s.form==="tower"&&!s.width){s.width=s.depth=Math.round(16*scale);}
     s.width=s.width||Math.round(D.w*scale*10)/10;s.depth=s.depth||Math.round(D.d*scale*10)/10;
