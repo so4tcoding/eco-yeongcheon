@@ -6,7 +6,7 @@
 <title>영천 RE:BUILD · 버려진 땅을 지속가능한 공간으로</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css'">
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#1d2b25;background:#eef3ef}
 header{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:linear-gradient(90deg,#0f3d2e,#1f6b4a);color:#fff;box-shadow:0 2px 10px #0003;position:relative;z-index:5}
@@ -34,6 +34,8 @@ button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;b
 .note{color:#7a4b00;background:#fff6e5;border-radius:8px;padding:6px 8px;margin-top:8px;font-size:11.5px}.close{float:right;background:none;font-size:18px;padding:0 4px}
 .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;background:#e53935;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px #0006}
 .ex{background:#fd9d24;color:#fff;font-size:11px;font-weight:700;padding:3px 7px;border-radius:10px;box-shadow:0 1px 4px #0005;cursor:pointer;white-space:nowrap}
+#diag{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);background:#fff;border-radius:14px;box-shadow:0 4px 20px #0003;padding:18px 22px;font-size:14px;line-height:1.7;max-width:560px;z-index:3}#diag.err{border:3px solid #d64541}#diag.hidden{display:none}
+#notice{position:absolute;bottom:34px;left:12px;background:#fff6e5;border:1px solid #f1c27d;border-radius:10px;padding:6px 10px;font-size:12px;z-index:3;max-width:420px}
 
 </style>
 </head>
@@ -75,14 +77,25 @@ button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;b
   </aside>
   <div id="mapWrap">
     <div id="map"></div>
+    <div id="diag"><b>🗺 지도를 불러오는 중…</b><br>계속 안 뜨면:<br>① 구글 드라이브 미리보기 말고 <b>파일을 다운로드</b>해서 <b>크롬/엣지</b>로 여세요<br>② 또는 이 주소로 접속: <b>https://so4tcoding.github.io/eco-yeongcheon/</b></div>
     <div id="viewBtns"><button data-v="3d" class="on">3D</button><button data-v="2d">2D 위에서</button><button data-v="sat">항공사진</button></div>
     <div id="toast"></div>
     <div id="analysis" class="hidden"></div>
   </div>
 </main>
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+/* 라이브러리 로더: CDN 하나가 막혀도 다른 CDN으로 자동 재시도 */
+var DIAG=[];
+var LIBS=[
+ ["maplibregl",["https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js","https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js","https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"]],
+ ["THREE",["https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js","https://unpkg.com/three@0.157.0/build/three.min.js","https://cdnjs.cloudflare.com/ajax/libs/three.js/0.157.0/three.min.js"]],
+ ["jspdf",["https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js","https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js","https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"]]
+];
+function loadScript(glob,urls,cb){var i=0;(function next(){if(window[glob])return cb(true);if(i>=urls.length)return cb(false);var u=urls[i++],s=document.createElement("script"),done=false;
+  var t=setTimeout(function(){if(!done){done=true;s.remove();next();}},9000);
+  s.onload=function(){if(done)return;done=true;clearTimeout(t);window[glob]?cb(true):next();};s.onerror=function(){if(done)return;done=true;clearTimeout(t);s.remove();next();};s.src=u;document.head.appendChild(s);})();}
+function loadLibs(list,cb){var k=0;(function step(){if(k>=list.length)return cb();var L=list[k++];loadScript(L[0],L[1],function(ok){if(!ok)DIAG.push(L[0]);step();});})();}
+</script>
 <script>/* config.js */
 /* =====================================================================
  *  영천 RE:BUILD  —  설정 파일
@@ -547,8 +560,8 @@ var PDF=(function(){
       if(ri%2){g.fillStyle="#f7f9fc";g.fillRect(x,y,w,rh);}g.fillStyle=INK;cx=x;r.forEach(function(t,i){font(g,20,i===0);wrap(g,t,cx+10,y+30,widths[i]-20,28);cx+=widths[i];});g.strokeStyle="#c9d3e3";g.lineWidth=1;g.beginPath();g.moveTo(x,y+rh);g.lineTo(x+w,y+rh);g.stroke();y+=rh;});
     g.strokeStyle=INK;g.lineWidth=2;return y;}
 
-  function make(st){if(!st.spec)return;var btn=document.getElementById("pdfBtn");btn.disabled=true;btn.textContent="📄 설계도 그리는 중…";
-    var shot=null;try{shot=document.querySelector("#map canvas").toDataURL("image/jpeg",0.9);}catch(e){}
+  function make(st){if(!st.spec)return;if(!window.jspdf){alert("PDF 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.");return;}var btn=document.getElementById("pdfBtn");btn.disabled=true;btn.textContent="📄 설계도 그리는 중…";
+    var shot=null;try{var mc=document.querySelector("#map canvas.maplibregl-canvas");if(mc)shot=mc.toDataURL("image/jpeg",0.9);}catch(e){}
     var fl=document.fonts?Promise.all([document.fonts.load('700 30px "Noto Sans KR"'),document.fonts.load('400 30px "Noto Sans KR"')]).catch(function(){}):Promise.resolve();
     return fl.then(function(){return shot?loadImg(shot):null;}).then(function(img){
       var s=st.spec,e=st.eco,F=ECO.fmt,pages=[],total=3;
@@ -591,8 +604,19 @@ var map,pinMarker;
 function toast(t,ms){var e=document.getElementById("toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(function(){e.classList.remove("show");},ms||2600);}
 function $(id){return document.getElementById(id);}
 
-function initMap(){
-  map=new maplibregl.Map({container:"map",style:APP_CONFIG.freeStyleUrl,center:[APP_CONFIG.center.lng,APP_CONFIG.center.lat],zoom:APP_CONFIG.startZoom,pitch:60,bearing:-20,antialias:true,preserveDrawingBuffer:true,maxPitch:80});
+var MODE="gl",LMAP=null,LPIN=null,LFOOT=null,LSAT=null,LOSM=null;
+function diag(html,err){var d=$("diag");d.innerHTML=html;d.className=err?"err":"";}
+function diagHide(){$("diag").className="hidden";}
+function notice(t){var n=$("notice");if(!n){n=document.createElement("div");n.id="notice";$("mapWrap").appendChild(n);}n.innerHTML=t;}
+function hasWebGL(){try{var c=document.createElement("canvas");return !!(c.getContext("webgl2")||c.getContext("webgl"));}catch(e){return false;}}
+var RASTER_STYLE={version:8,sources:{osm:{type:"raster",tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],tileSize:256,maxzoom:19,attribution:"© OpenStreetMap"}},layers:[{id:"osm",type:"raster",source:"osm"}]};
+function getStyle(cb){var done=false;var t=setTimeout(function(){if(!done){done=true;cb(RASTER_STYLE,"timeout");}},6000);
+  fetch(APP_CONFIG.freeStyleUrl).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){if(!done){done=true;clearTimeout(t);cb(j);}}).catch(function(){if(!done){done=true;clearTimeout(t);cb(RASTER_STYLE,"fail");}});}
+function initMap(){getStyle(function(style,why){
+  if(why)notice("⚠ 3D 건물 지도 서버(openfreemap)에 연결이 안 돼서 기본 지도(OpenStreetMap)로 바꿨어요. 새 건물·친환경 3D는 그대로 됩니다.");
+  initGL(style);});}
+function initGL(style){
+  map=new maplibregl.Map({container:"map",style:style,center:[APP_CONFIG.center.lng,APP_CONFIG.center.lat],zoom:APP_CONFIG.startZoom,pitch:60,bearing:-20,antialias:true,preserveDrawingBuffer:true,maxPitch:80});
   map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),"bottom-right");
   map.addControl(new maplibregl.ScaleControl({unit:"metric"}),"bottom-left");
   map.on("load",function(){
@@ -602,9 +626,12 @@ function initMap(){
     map.addSource("foot",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
     map.addLayer({id:"foot-fill",type:"fill",source:"foot",paint:{"fill-color":["get","c"],"fill-opacity":0.35}});
     map.addLayer({id:"foot-line",type:"line",source:"foot",paint:{"line-color":["get","c"],"line-width":2.5,"line-dasharray":[2,1]}});
-    SCENE.init(map);
-    window.__mapReady=true;
+    try{SCENE.init(map);}catch(e){notice("⚠ 3D 모델 엔진(three.js)을 불러오지 못했어요: 지도·분석·PDF는 됩니다.");}
+    window.__mapReady=true;diagHide();
   });
+  var loaded=false;map.on("load",function(){loaded=true;});
+  map.on("error",function(e){if(!loaded&&window.console)console.warn("map error",e&&e.error);});
+  setTimeout(function(){if(!loaded){if(style!==RASTER_STYLE){notice("⚠ 지도 스타일 로딩이 늦어 기본 지도로 다시 시도해요.");map.remove();initGL(RASTER_STYLE);}else diag("<b>❌ 지도 타일을 불러오지 못했어요.</b><br>학교/공용 와이파이가 지도 서버를 막고 있을 수 있어요.<br>휴대폰 핫스팟 등 다른 인터넷으로 다시 열어 보세요.",1);}},15000);
   map.on("click",function(e){setSite(e.lngLat.lat,e.lngLat.lng,null);});
   PRESETS.forEach(function(p,i){var el=document.createElement("div");el.className="ex";el.textContent="예시 "+"ABC"[i];el.title=p.name;el.onclick=function(ev){ev.stopPropagation();pickPreset(i);};new maplibregl.Marker({element:el,anchor:"bottom"}).setLngLat([p.lng,p.lat]).addTo(map);});
 }
@@ -613,9 +640,10 @@ function pickPreset(i){var p=PRESETS[i];setSite(p.lat,p.lng,p.name+" — "+p.des
 
 function setSite(lat,lng,label){
   STATE.site={lat:lat,lng:lng,label:label||"",addr:""};
-  if(!pinMarker){var el=document.createElement("div");el.className="pin";pinMarker=new maplibregl.Marker({element:el,anchor:"bottom"});}
+  if(MODE==="leaflet"){if(!LPIN)LPIN=L.marker([lat,lng]).addTo(LMAP);else LPIN.setLatLng([lat,lng]);LMAP.setView([lat,lng],Math.max(LMAP.getZoom(),18));}
+  else{if(!pinMarker){var el=document.createElement("div");el.className="pin";pinMarker=new maplibregl.Marker({element:el,anchor:"bottom"});}
   pinMarker.setLngLat([lng,lat]).addTo(map);
-  map.flyTo({center:[lng,lat],zoom:Math.max(map.getZoom(),17),pitch:60,speed:1.2});
+  map.flyTo({center:[lng,lat],zoom:Math.max(map.getZoom(),17),pitch:60,speed:1.2});}
   renderSite();reverseGeocode(lat,lng);
   if(STATE.spec)placeModel();
 }
@@ -643,12 +671,12 @@ function generate(){
 }
 function showSpec(){var s=STATE.spec;var tags=[s.typeName+" · "+s.use,s.formName,s.floors?s.floors+"층":"",s.width+"×"+s.depth+"m","높이 "+s.height+"m",s.colorName,s.materialName,(s.roof==="gable"&&(s.form==="box"||s.form==="tower"))?"박공지붕":""].filter(Boolean);
   $("aiOut").innerHTML="🤖 <b>AI 해석 결과</b><br>"+tags.map(function(t,i){return '<span class="tag"'+(i===5?' style="border-left:12px solid '+s.color+'"':'')+'>'+t+"</span>";}).join("");}
-function placeModel(){var s=STATE.spec;s.rotation=+$("fRot").value;STATE.geo=GEO.build(s);STATE.eco=null;SCENE.setModel(STATE.site,s,STATE.geo);
-  setFoot(STATE.geo.foot.outer,s.color);hideOsmBuildings();$("ecoBtn").disabled=false;$("pdfBtn").disabled=false;$("analysis").classList.add("hidden");
-  map.easeTo({center:[STATE.site.lng,STATE.site.lat],zoom:zoomFor(s),pitch:62,duration:900});toast("✨ "+s.use+" 생성 완료! 이제 ‘친환경화 실행’을 눌러 보세요.",3500);}
+function placeModel(){var s=STATE.spec;s.rotation=+$("fRot").value;STATE.geo=GEO.build(s);STATE.eco=null;if(MODE==="gl"){try{SCENE.setModel(STATE.site,s,STATE.geo);}catch(e){}}
+  setFoot(STATE.geo.foot.outer,s.color);if(MODE==="gl")hideOsmBuildings();$("ecoBtn").disabled=false;$("pdfBtn").disabled=false;$("analysis").classList.add("hidden");
+  if(MODE==="gl")map.easeTo({center:[STATE.site.lng,STATE.site.lat],zoom:zoomFor(s),pitch:62,duration:900});toast("✨ "+s.use+" 생성 완료! 이제 ‘친환경화 실행’을 눌러 보세요.",3500);}
 function zoomFor(s){var L=Math.max(s.width,s.depth,s.height*1.2);return L<5?20.5:L<15?19.8:L<40?18.8:L<90?18:17.3;}
 function toLngLat(x,y){var s=STATE.site,r=-(STATE.spec?STATE.spec.rotation:0)*Math.PI/180,xr=x*Math.cos(r)-y*Math.sin(r),yr=x*Math.sin(r)+y*Math.cos(r);return [s.lng+xr/(111320*Math.cos(s.lat*Math.PI/180)),s.lat+yr/110540];}
-function setFoot(outer,c){var ring=outer.map(function(q){return toLngLat(q[0],q[1]);});ring.push(ring[0]);map.getSource("foot").setData({type:"FeatureCollection",features:[{type:"Feature",properties:{c:c},geometry:{type:"Polygon",coordinates:[ring]}}]});}
+function setFoot(outer,c){var ring=outer.map(function(q){return toLngLat(q[0],q[1]);});if(MODE==="leaflet"){if(LFOOT)LMAP.removeLayer(LFOOT);LFOOT=L.polygon(ring.map(function(p){return[p[1],p[0]];}),{color:c,fillColor:c,fillOpacity:0.45,weight:3}).addTo(LMAP);return;}ring.push(ring[0]);map.getSource("foot").setData({type:"FeatureCollection",features:[{type:"Feature",properties:{c:c},geometry:{type:"Polygon",coordinates:[ring]}}]});}
 function hideOsmBuildings(){ // 부지 위 기존 건물(지도 데이터)을 숨겨 새 건물로 교체된 것처럼 보이게
   try{var b=GEO.bbox(STATE.geo.foot.outer),pts=[toLngLat(b.x0,b.y0),toLngLat(b.x1,b.y1),toLngLat(b.x0,b.y1),toLngLat(b.x1,b.y0)].map(function(p){return map.project(p);});
     var x0=Math.min.apply(0,pts.map(function(p){return p.x;})),x1=Math.max.apply(0,pts.map(function(p){return p.x;})),y0=Math.min.apply(0,pts.map(function(p){return p.y;})),y1=Math.max.apply(0,pts.map(function(p){return p.y;}));
@@ -656,8 +684,8 @@ function hideOsmBuildings(){ // 부지 위 기존 건물(지도 데이터)을 �
     map.setFilter("building-3d",ids.length?["all",["!",["has","hide_3d"]],["!",["in",["id"],["literal",ids]]]]:["!",["has","hide_3d"]]);STATE.hidden=ids.length;}catch(e){}}
 
 function runEco(){if(!STATE.spec)return;var btn=$("ecoBtn");btn.disabled=true;btn.textContent="🌿 분석 중…";
-  setTimeout(function(){STATE.eco=ECO.analyze(STATE.spec,STATE.geo,STATE.site);SCENE.setEco(STATE.spec,STATE.eco);setFoot(STATE.geo.foot.outer,"#2e9b55");
-    map.easeTo({bearing:map.getBearing()+40,duration:3200});setTimeout(function(){showAnalysis();btn.disabled=false;btn.textContent="🌿 친환경화 다시 실행";},1200);toast("🌱 친환경화 진행 중… 옥상녹화 → 나무 → 태양광 → 빗물탱크 → 풍력",3500);},700);}
+  setTimeout(function(){STATE.eco=ECO.analyze(STATE.spec,STATE.geo,STATE.site);if(MODE==="gl"){try{SCENE.setEco(STATE.spec,STATE.eco);}catch(e){}}setFoot(STATE.geo.foot.outer,"#2e9b55");
+    if(MODE==="gl")map.easeTo({bearing:map.getBearing()+40,duration:3200});setTimeout(function(){showAnalysis();btn.disabled=false;btn.textContent="🌿 친환경화 다시 실행";},1200);toast("🌱 친환경화 진행 중… 옥상녹화 → 나무 → 태양광 → 빗물탱크 → 풍력",3500);},700);}
 function showAnalysis(){var e=STATE.eco,m=e.m,s=STATE.spec,F=ECO.fmt,el=$("analysis");
   el.innerHTML='<button class="close" onclick="this.parentNode.classList.add(\'hidden\')">×</button><h4>🌿 친환경화 분석 결과</h4>'+
   '<div>📍 '+(STATE.site.label||"지정 부지")+' ('+STATE.site.lat.toFixed(5)+', '+STATE.site.lng.toFixed(5)+')<br>🏗 '+s.use+' · '+s.formName+' · '+s.width+'×'+s.depth+'m'+(s.floors?' · '+s.floors+'층':'')+'</div>'+
@@ -668,19 +696,33 @@ function showAnalysis(){var e=STATE.eco,m=e.m,s=STATE.spec,F=ECO.fmt,el=$("analy
   el.classList.remove("hidden");}
 
 function setView(v){document.querySelectorAll("#viewBtns button").forEach(function(b){b.classList.toggle("on",b.dataset.v===v);});
-  map.setLayoutProperty("sat","visibility",v==="sat"?"visible":"none");map.easeTo({pitch:v==="2d"?0:60,duration:800});}
+  if(MODE==="leaflet"){if(v==="sat"){LMAP.removeLayer(LOSM);LSAT.addTo(LMAP);}else{LMAP.removeLayer(LSAT);LOSM.addTo(LMAP);}return;}
+  if(!map.getLayer("sat"))return;  map.setLayoutProperty("sat","visibility",v==="sat"?"visible":"none");map.easeTo({pitch:v==="2d"?0:60,duration:800});}
 
-window.addEventListener("DOMContentLoaded",function(){
-  if(typeof maplibregl==="undefined"){document.getElementById("map").innerHTML='<div style="padding:40px">지도 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</div>';return;}
-  initMap();
+function initLeaflet(reason){MODE="leaflet";
+  var css=document.createElement("link");css.rel="stylesheet";css.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";css.onerror=function(){css.href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";};document.head.appendChild(css);
+  loadScript("L",["https://unpkg.com/leaflet@1.9.4/dist/leaflet.js","https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js","https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"],function(ok){
+    if(!ok){diag("<b>❌ 지도 라이브러리를 하나도 불러오지 못했어요.</b><br>("+reason+")<br>학교 인터넷이 CDN을 막고 있을 수 있어요. 휴대폰 핫스팟으로 다시 열어 보세요.",1);return;}
+    LMAP=L.map("map").setView([APP_CONFIG.center.lat,APP_CONFIG.center.lng],16);
+    LOSM=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(LMAP);
+    LSAT=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,maxNativeZoom:18,attribution:"Esri"});
+    LMAP.on("click",function(e){setSite(e.latlng.lat,e.latlng.lng,null);});
+    PRESETS.forEach(function(p,i){L.marker([p.lat,p.lng],{title:p.name}).addTo(LMAP).bindTooltip("예시 "+"ABC"[i],{permanent:true,direction:"top"}).on("click",function(){pickPreset(i);});});
+    diagHide();window.__mapReady=true;
+    notice("⚠ "+reason+" → <b>2D 지도</b>로 표시해요. 부지 선택·AI 해석·친환경 분석·설계도 PDF는 그대로 됩니다.<br>3D를 보려면: 크롬 설정 → 시스템 → <b>‘가능한 경우 그래픽 가속 사용’</b> 켜고 재시작");});}
+function BOOT(){
+  if(window.maplibregl&&hasWebGL()){initMap();}
+  else initLeaflet(!window.maplibregl?"3D 지도 라이브러리(MapLibre)를 불러오지 못했어요":"이 컴퓨터/브라우저에서 WebGL(3D 그래픽)이 꺼져 있어요");
+  if(DIAG.indexOf("jspdf")>=0)notice("⚠ PDF 라이브러리를 불러오지 못했어요. PDF 버튼이 작동하지 않을 수 있어요.");
   PRESETS.forEach(function(p,i){var b=document.createElement("button");b.innerHTML="<b>예시</b> "+p.name.replace("예시 ","")+"<br><small>"+p.desc+"</small>";b.onclick=function(){pickPreset(i);};$("presets").appendChild(b);});
   $("addrBtn").onclick=search;$("addr").addEventListener("keydown",function(e){if(e.key==="Enter")search();});
   $("genBtn").onclick=generate;$("ecoBtn").onclick=runEco;$("pdfBtn").onclick=function(){PDF.make(STATE);};
   $("fRot").oninput=function(){$("rotV").textContent=this.value+"°";};$("fRot").onchange=function(){if(STATE.spec){placeModel();if(STATE.eco)runEco();}};
   $("fColor").oninput=function(){$("fColorOn").checked=true;};
   document.querySelectorAll("#viewBtns button").forEach(function(b){b.onclick=function(){setView(b.dataset.v);};});
-});
+}
 
 </script>
+<script>loadLibs(LIBS,function(){BOOT();});</script>
 </body>
 </html>
